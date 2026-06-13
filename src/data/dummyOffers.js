@@ -50,6 +50,7 @@ export const dummyOffers = [
     pdfUrl: "https://drive.google.com/example-offer-meera",
     emailSentAt: "2026-06-04",
   },
+  
   {
     id: "OFF-004",
     candidateId: "CAND-006",
@@ -66,5 +67,22 @@ export const dummyOffers = [
     approvedAt: "2026-06-03",
     pdfUrl: "https://drive.google.com/example-offer-neha",
     emailSentAt: "2026-06-03",
+  },
+  {
+    id: "OFF-005",
+    candidateId: "CAND-007",
+    probationAttemptId: null,
+    mid: "MK/SK/001",
+    role: "Marketing Intern",
+    roleCode: "MK",
+    startDate: "2026-06-02",
+    endDate: "2026-10-02",
+    durationMonths: 4,
+    weeklyHours: 20,
+    offerStatus: "EMAIL_SENT",
+    approvedBy: "USER-001",
+    approvedAt: "2026-06-02",
+    pdfUrl: "https://drive.google.com/example-offer-sameer",
+    emailSentAt: "2026-06-02",
   },
 ];
