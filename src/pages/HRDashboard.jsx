@@ -1,47 +1,125 @@
 import { Link } from "react-router-dom";
 
+import DashboardCard from "../components/DashboardCard";
+
+import {
+  dummyCandidates,
+  dummyProbationAttempts,
+  dummyOffers,
+  dummyActiveInterns,
+  dummySignedOffers,
+} from "../data";
+
+import { getDashboardCounts } from "../utils/dashboardCounts";
+
 export default function HRDashboard() {
+  const counts = getDashboardCounts({
+    candidates: dummyCandidates,
+    probationAttempts: dummyProbationAttempts,
+    offers: dummyOffers,
+    activeInterns: dummyActiveInterns,
+    signedOffers: dummySignedOffers,
+  });
+
   return (
     <div style={{ padding: "20px" }}>
       <h1>HR Dashboard</h1>
-      <p>Select a module:</p>
 
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "10px",
-          width: "300px",
-        }}
-      >
-        <Link to="/candidate-form">
-          <button>Candidate Probation Form</button>
-        </Link>
+      <h2>Summary</h2>
 
-        <Link to="/probation-review">
-          <button>Probation Review</button>
-        </Link>
+      <DashboardCard
+        title="Total Candidates"
+        value={counts.totalCandidates}
+      />
 
-        <Link to="/offer-approval">
-          <button>Offer Approval</button>
-        </Link>
+      <DashboardCard
+        title="In Probation"
+        value={counts.inProbation}
+      />
 
-        <Link to="/active-interns">
-          <button>Active Interns</button>
-        </Link>
+      <DashboardCard
+        title="Approved Probation"
+        value={counts.approvedProbation}
+      />
 
-        <Link to="/signed-offer-upload">
-          <button>Signed Offer Upload</button>
-        </Link>
+      <DashboardCard
+        title="Rejected Probation"
+        value={counts.rejectedProbation}
+      />
 
-        <Link to="/signed-offer-verification">
-          <button>Signed Offer Verification</button>
-        </Link>
+      <DashboardCard
+        title="Offer Approved"
+        value={counts.offerApproved}
+      />
 
-        <Link to="/activity-log">
-          <button>Activity Log</button>
-        </Link>
-      </div>
+      <DashboardCard
+        title="Offer Sent"
+        value={counts.offerSent}
+      />
+
+      <DashboardCard
+        title="Active Interns"
+        value={counts.activeInterns}
+      />
+
+      <DashboardCard
+        title="Signed Offer Submitted"
+        value={counts.signedOfferSubmitted}
+      />
+
+      <DashboardCard
+        title="Signed Offer Mismatch"
+        value={counts.signedOfferMismatch}
+      />
+
+      <DashboardCard
+        title="Signed Offer Rejected"
+        value={counts.signedOfferRejected}
+      />
+
+      <hr />
+
+      <h2>Modules</h2>
+
+      <Link to="/candidate-form">
+        <button>Candidate Probation Form</button>
+      </Link>
+
+      <br /><br />
+
+      <Link to="/probation-review">
+        <button>Probation Review</button>
+      </Link>
+
+      <br /><br />
+
+      <Link to="/offer-approval">
+        <button>Offer Approval</button>
+      </Link>
+
+      <br /><br />
+
+      <Link to="/active-interns">
+        <button>Active Interns</button>
+      </Link>
+
+      <br /><br />
+
+      <Link to="/signed-offer-upload">
+        <button>Signed Offer Upload</button>
+      </Link>
+
+      <br /><br />
+
+      <Link to="/signed-offer-verification">
+        <button>Signed Offer Verification</button>
+      </Link>
+
+      <br /><br />
+
+      <Link to="/activity-log">
+        <button>Activity Log</button>
+      </Link>
     </div>
   );
 }
