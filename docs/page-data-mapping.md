@@ -110,9 +110,9 @@ consent| Candidate consent confirmation
 Default Values
 
 Field| Default
-createdSource| candidate_form
-currentStatus| HR_REVIEW_PENDING
-probationStatus| Not created until HR approves for probation
+createdSource = candidate_form
+currentStatus = IN_PROBATION
+probationStatus = IN_PROBATION
 
 Later Action
 
@@ -150,9 +150,9 @@ This page should show candidates who are currently in probation or ready for HR 
 
 Suggested records to display:
 
-- Candidates with probation status "PROBATION_STARTED"
+- Candidates with probation status "IN_PROBATION"
 - Candidates with probation status "UNDER_REVIEW"
-- Candidates with probation status "EXTENDED"
+- Candidates with probation status "PROBATION_EXTENDED"
 - Candidates with probation status "RECONSIDERATION"
 
 Main Columns
@@ -257,7 +257,7 @@ lifecycleRules.js
 
 What This Page Should Show
 
-This page should show candidates who have become active interns after offer email is sent.
+This page should show candidates who have become active interns after the offer letter is sent.
 
 Main Columns
 
