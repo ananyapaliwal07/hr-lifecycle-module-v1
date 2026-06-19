@@ -1,56 +1,409 @@
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { dummyCandidates, dummyProbationAttempts } from "../data";
+import CandidateDetailModal from "../components/CandidateDetailModal";
+import {
+  generateCandidateMidAfterProbation,
+  updateCandidateLifecycleStatus,
+} from "../services/lifecycleActionService";
+import { fetchProbationReviewCandidates } from "../services/probationReviewService";
+
+const reviewStatuses = [
+  "HR_REVIEW_PENDING",
+  "HR_APPROVED_FOR_PROBATION",
+  "WELCOME_MAIL_SENT",
+  "IN_PROBATION",
+  "PROBATION_REVIEW",
+  "PROBATION_PASSED",
+  "PROBATION_REJECTED",
+  "PROBATION_EXTENDED",
+  "UNDER_REVIEW",
+  "RECONSIDERATION",
+];
+
+function buildFallbackProbationRecords() {
+  return dummyProbationAttempts
+    .filter((attempt) => reviewStatuses.includes(attempt.status))
+    .map((attempt) => {
+      const candidate = dummyCandidates.find(
+        (candidate) => candidate.id === attempt.candidateId
+      );
+
+      return {
+        id: attempt.id,
+        candidateId: attempt.candidateId,
+        fullName: candidate?.fullName,
+        email: candidate?.email,
+        phone: candidate?.phone,
+        appliedRole: candidate?.roleAppliedFor,
+        department: candidate?.department,
+        source: candidate?.createdSource,
+        attemptNo: attempt.attemptNo,
+        probationStartDate: attempt.probationStartDate,
+        probationEndDate: attempt.probationEndDate,
+        probationStatus: attempt.status,
+        probationReviewNotes: attempt.hrRemarks,
+        hrDecision: reviewStatuses.includes(attempt.status) ? attempt.status : null,
+        mid: null,
+      };
+    });
+}
+
+function mapSupabaseProbationRecord(row) {
+  return {
+    id: row.candidate_id,
+    candidateId: row.candidate_id,
+    fullName: row.full_name,
+    email: row.email,
+    phone: row.phone,
+    appliedRole: row.applied_role,
+    department: "",
+    source: row.source,
+    attemptNo: "",
+    probationStartDate: row.probation_start_date,
+    probationEndDate: row.probation_end_date,
+    probationStatus: row.probation_status,
+    probationReviewNotes: row.probation_review_notes,
+    hrDecision: row.hr_decision,
+    mid: row.mid,
+  };
+}
 
 export default function ProbationReview() {
-  const reviewStatuses = [
-    "IN_PROBATION",
-    "UNDER_REVIEW",
-    "PROBATION_EXTENDED",
-    "RECONSIDERATION",
-  ];
+  const fallbackRecords = useMemo(() => buildFallbackProbationRecords(), []);
+  const [probationRecords, setProbationRecords] = useState(fallbackRecords);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [actionCandidateId, setActionCandidateId] = useState(null);
+  const [actionMessage, setActionMessage] = useState("");
+  const [selectedCandidateId, setSelectedCandidateId] = useState(null);
 
-  const probationRecords = dummyProbationAttempts.filter((attempt) =>
-    reviewStatuses.includes(attempt.status)
-  );
+  async function refreshProbationRecords() {
+    try {
+      const records = await fetchProbationReviewCandidates();
+
+      if (records?.length) {
+        setProbationRecords(records.map(mapSupabaseProbationRecord));
+        setErrorMessage("");
+      } else {
+        setProbationRecords(fallbackRecords);
+        setErrorMessage("No Supabase probation review data found. Showing dummy data.");
+      }
+    } catch (error) {
+      console.error("Unable to load probation review candidates:", error);
+      setProbationRecords(fallbackRecords);
+      setErrorMessage("Unable to load Supabase probation review data. Showing dummy data.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadInitialProbationRecords() {
+      try {
+        const records = await fetchProbationReviewCandidates();
+
+        if (!isMounted) return;
+
+        if (records?.length) {
+          setProbationRecords(records.map(mapSupabaseProbationRecord));
+          setErrorMessage("");
+        } else {
+          setProbationRecords(fallbackRecords);
+          setErrorMessage("No Supabase probation review data found. Showing dummy data.");
+        }
+      } catch (error) {
+        if (!isMounted) return;
+
+        console.error("Unable to load probation review candidates:", error);
+        setProbationRecords(fallbackRecords);
+        setErrorMessage("Unable to load Supabase probation review data. Showing dummy data.");
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadInitialProbationRecords();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [fallbackRecords]);
+
+  async function handleLifecycleAction({
+    candidateId,
+    fromStatus,
+    toStatus,
+    activityType,
+    remarks,
+    successMessage,
+  }) {
+    setActionCandidateId(candidateId);
+    setActionMessage("");
+    setErrorMessage("");
+
+    try {
+      await updateCandidateLifecycleStatus({
+        candidateId,
+        fromStatus,
+        toStatus,
+        activityType,
+        remarks,
+        performedBy: "HR",
+      });
+
+      setActionMessage(successMessage);
+      await refreshProbationRecords();
+    } catch (error) {
+      console.error("Unable to update candidate lifecycle status:", error);
+      setErrorMessage("Unable to update candidate lifecycle status.");
+    } finally {
+      setActionCandidateId(null);
+    }
+  }
+
+  async function handleGenerateMid(record) {
+    setActionCandidateId(record.candidateId);
+    setActionMessage("");
+    setErrorMessage("");
+
+    try {
+      const { mid } = await generateCandidateMidAfterProbation({
+        candidateId: record.candidateId,
+        fullName: record.fullName,
+        appliedRole: record.appliedRole,
+        existingMid: record.mid,
+        performedBy: "HR",
+      });
+
+      setActionMessage(`MID generated: ${mid}`);
+      await refreshProbationRecords();
+    } catch (error) {
+      console.error("Unable to generate MID:", error);
+      setErrorMessage(error.message || "Unable to generate MID.");
+    } finally {
+      setActionCandidateId(null);
+    }
+  }
 
   return (
     <div style={{ padding: "20px" }}>
       <h1>Probation Review</h1>
 
+      {isLoading && <p>Loading probation review candidates...</p>}
+
+      {errorMessage && <p>{errorMessage}</p>}
+
+      {actionMessage && <p>{actionMessage}</p>}
+
       <table border="1" cellPadding="10">
         <thead>
           <tr>
             <th>Candidate Name</th>
+            <th>Email</th>
+            <th>Phone</th>
             <th>Role</th>
             <th>Department</th>
             <th>Attempt No</th>
+            <th>Source</th>
             <th>Start Date</th>
             <th>End Date</th>
             <th>Status</th>
+            <th>HR Decision</th>
+            <th>MID</th>
             <th>HR Remarks</th>
+            <th>Action</th>
           </tr>
         </thead>
 
         <tbody>
-          {probationRecords.map((attempt) => {
-            const candidate = dummyCandidates.find(
-              (candidate) => candidate.id === attempt.candidateId
-            );
+          {probationRecords.map((record) => (
+            <tr key={record.id}>
+              <td>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCandidateId(record.candidateId)}
+                >
+                  {record.fullName}
+                </button>
+              </td>
+              <td>{record.email}</td>
+              <td>{record.phone}</td>
+              <td>{record.appliedRole}</td>
+              <td>{record.department}</td>
+              <td>{record.attemptNo}</td>
+              <td>{record.source}</td>
+              <td>{record.probationStartDate}</td>
+              <td>{record.probationEndDate}</td>
+              <td>{record.probationStatus}</td>
+              <td>{record.hrDecision}</td>
+              <td>{record.mid}</td>
+              <td>{record.probationReviewNotes}</td>
+              <td>
+                {record.probationStatus === "HR_REVIEW_PENDING" && (
+                  <button
+                    type="button"
+                    disabled={actionCandidateId === record.candidateId}
+                    onClick={() =>
+                      handleLifecycleAction({
+                        candidateId: record.candidateId,
+                        fromStatus: "HR_REVIEW_PENDING",
+                        toStatus: "HR_APPROVED_FOR_PROBATION",
+                        activityType: "HR_APPROVED_FOR_PROBATION",
+                        remarks: "Candidate approved for probation by HR",
+                        successMessage: "Candidate approved for probation.",
+                      })
+                    }
+                  >
+                    {actionCandidateId === record.candidateId
+                      ? "Approving..."
+                      : "Approve for Probation"}
+                  </button>
+                )}
 
-            return (
-              <tr key={attempt.id}>
-                <td>{candidate?.fullName}</td>
-                <td>{candidate?.roleAppliedFor}</td>
-                <td>{candidate?.department}</td>
-                <td>{attempt.attemptNo}</td>
-                <td>{attempt.probationStartDate}</td>
-                <td>{attempt.probationEndDate}</td>
-                <td>{attempt.status}</td>
-                <td>{attempt.hrRemarks}</td>
-              </tr>
-            );
-          })}
+                {record.probationStatus === "HR_APPROVED_FOR_PROBATION" && (
+                  <button
+                    type="button"
+                    disabled={actionCandidateId === record.candidateId}
+                    onClick={() =>
+                      handleLifecycleAction({
+                        candidateId: record.candidateId,
+                        fromStatus: "HR_APPROVED_FOR_PROBATION",
+                        toStatus: "WELCOME_MAIL_SENT",
+                        activityType: "WELCOME_MAIL_SENT",
+                        remarks: "Welcome mail marked as sent by HR",
+                        successMessage: "Welcome mail marked as sent.",
+                      })
+                    }
+                  >
+                    {actionCandidateId === record.candidateId
+                      ? "Marking..."
+                      : "Mark Welcome Mail Sent"}
+                  </button>
+                )}
+
+                {record.probationStatus === "WELCOME_MAIL_SENT" && (
+                  <button
+                    type="button"
+                    disabled={actionCandidateId === record.candidateId}
+                    onClick={() =>
+                      handleLifecycleAction({
+                        candidateId: record.candidateId,
+                        fromStatus: "WELCOME_MAIL_SENT",
+                        toStatus: "IN_PROBATION",
+                        activityType: "IN_PROBATION",
+                        remarks: "Candidate marked as in probation by HR",
+                        successMessage: "Candidate marked as in probation.",
+                      })
+                    }
+                  >
+                    {actionCandidateId === record.candidateId
+                      ? "Marking..."
+                      : "Mark In Probation"}
+                  </button>
+                )}
+
+                {record.probationStatus === "IN_PROBATION" && (
+                  <button
+                    type="button"
+                    disabled={actionCandidateId === record.candidateId}
+                    onClick={() =>
+                      handleLifecycleAction({
+                        candidateId: record.candidateId,
+                        fromStatus: "IN_PROBATION",
+                        toStatus: "PROBATION_REVIEW",
+                        activityType: "PROBATION_REVIEW",
+                        remarks: "Candidate marked ready for probation review by HR",
+                        successMessage: "Candidate marked ready for probation review.",
+                      })
+                    }
+                  >
+                    {actionCandidateId === record.candidateId
+                      ? "Marking..."
+                      : "Mark Ready for Review"}
+                  </button>
+                )}
+
+                {record.probationStatus === "PROBATION_REVIEW" && (
+                  <>
+                    <button
+                      type="button"
+                      disabled={actionCandidateId === record.candidateId}
+                      onClick={() =>
+                        handleLifecycleAction({
+                          candidateId: record.candidateId,
+                          fromStatus: "PROBATION_REVIEW",
+                          toStatus: "PROBATION_PASSED",
+                          activityType: "PROBATION_PASSED",
+                          remarks: "Candidate passed probation review by HR",
+                          successMessage: "Candidate marked as probation passed.",
+                        })
+                      }
+                    >
+                      {actionCandidateId === record.candidateId
+                        ? "Saving..."
+                        : "Pass Probation"}
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={actionCandidateId === record.candidateId}
+                      onClick={() =>
+                        handleLifecycleAction({
+                          candidateId: record.candidateId,
+                          fromStatus: "PROBATION_REVIEW",
+                          toStatus: "PROBATION_REJECTED",
+                          activityType: "PROBATION_REJECTED",
+                          remarks: "Candidate rejected after probation review by HR",
+                          successMessage: "Candidate marked as probation rejected.",
+                        })
+                      }
+                    >
+                      {actionCandidateId === record.candidateId
+                        ? "Saving..."
+                        : "Reject Probation"}
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={actionCandidateId === record.candidateId}
+                      onClick={() =>
+                        handleLifecycleAction({
+                          candidateId: record.candidateId,
+                          fromStatus: "PROBATION_REVIEW",
+                          toStatus: "PROBATION_EXTENDED",
+                          activityType: "PROBATION_EXTENDED",
+                          remarks: "Candidate probation extended by HR",
+                          successMessage: "Candidate probation extended.",
+                        })
+                      }
+                    >
+                      {actionCandidateId === record.candidateId
+                        ? "Saving..."
+                        : "Extend Probation"}
+                    </button>
+                  </>
+                )}
+
+                {record.probationStatus === "PROBATION_PASSED" && (
+                  <button
+                    type="button"
+                    disabled={actionCandidateId === record.candidateId}
+                    onClick={() => handleGenerateMid(record)}
+                  >
+                    {actionCandidateId === record.candidateId
+                      ? "Generating..."
+                      : "Generate MID"}
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
 
@@ -59,6 +412,11 @@ export default function ProbationReview() {
       <Link to="/">
         <button>Back to Dashboard</button>
       </Link>
+
+      <CandidateDetailModal
+        candidateId={selectedCandidateId}
+        onClose={() => setSelectedCandidateId(null)}
+      />
     </div>
   );
 }
