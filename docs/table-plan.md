@@ -423,6 +423,6 @@ The HR Lifecycle Module V1 will start with a dummy-data-based React workflow.
 
 The main flow is:
 
-Candidate Probation Form → Probation Review → Offer Approval → MID Generation → Offer Letter Sent → Active Intern → Signed Offer Submission → HR Verification/Rejection.
+Candidate Probation Form → Probation Review → Probation Passed → MID Generation → Offer Letter Generated → Offer Letter Sent → Active Intern → Signed Offer Submission → HR Verification/Rejection.
 
 This table plan is designed to work independently during development and later connect with the company-wide Supabase master database.
