@@ -756,7 +756,7 @@ Do not use this flow:
 
 Probation Passed
 ↓
-Offer Approved
+Offer Letter Generated / Offer Letter Sent
 
 Use this flow:
 
